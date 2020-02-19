@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import { Controller } from 'egg';
-import { getRepoFullName } from '../basic/Utils';
 import { genPlantUmlUrl } from '../../scripts/Utils';
 
 export default class UmlRenderer extends Controller {
@@ -24,7 +23,8 @@ export default class UmlRenderer extends Controller {
       this.ctx.body = 'PARAM ERROR';
       return;
     }
-    const client = await this.app.installation.getHostingClientByInstallationName(installationName, getRepoFullName(owner, repo));
+    const repoId = 123; // TODO
+    const client = await this.app.installation.getHostingClientByInstallationName(installationName, repoId);
     if (!client) {
       this.ctx.body = 'Client not found';
       return;

@@ -68,7 +68,7 @@ export class RepoDataService<TConfig extends HostingConfigBase, TRawClient> exte
     await waitUntil(() => this.repoData !== undefined);
     this.client.eventService.publish('all', HostingClientRepoDataInitedEvent, {
       installationId: this.client.getHostId(),
-      fullName: this.client.getFullName(),
+      repoId: this.client.getRepoId(),
       repoData: this.repoData,
     });
   }

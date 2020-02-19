@@ -21,11 +21,13 @@ export abstract class ClientServiceBase <TConfig extends HostingConfigBase, TRaw
 
   protected app: Application;
   protected logger: BotLogger;
+  protected serviceName: string;
   protected client: HostingClientBase<TConfig, TRawClient>;
 
   constructor(app: Application, client: HostingClientBase<TConfig, TRawClient>, serviceName: string) {
     this.app = app;
     this.client = client;
+    this.serviceName = serviceName;
     this.logger = loggerWrapper(app.logger,
       `[client-${client.getHostingBase().getName()}-${client.getFullName()}-${serviceName}]`);
   }
@@ -37,5 +39,10 @@ export abstract class ClientServiceBase <TConfig extends HostingConfigBase, TRaw
   public abstract async onConfigLoaded(): Promise<any>;
 
   public abstract async syncData(): Promise<any>;
+
+  public async onFullNameUpdate(): Promise<any> {
+    this.logger = loggerWrapper(this.app.logger,
+      `[client-${this.client.getHostingBase().getName()}-${this.client.getFullName()}-${this.serviceName}]`);
+  }
 
 }

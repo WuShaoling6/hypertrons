@@ -18,7 +18,8 @@ import { Command } from '../../basic/HostingPlatform/HostingClientService/Comman
 
 export class RepoEventBase {
   installationId: number;
-  fullName: string;
+  repoId: number;
+  fullName?: string;
 }
 
 /**
@@ -97,6 +98,13 @@ export class ReviewEvent extends RepoEventBase {
   prNumber: number;
   action: 'submitted' | 'dismissed' | 'edited';
   review: Review | undefined;
+}
+
+/**
+ * When update repo name
+ */
+export class RepoRenamedEvent extends RepoEventBase {
+  fullName: string;
 }
 
 /**

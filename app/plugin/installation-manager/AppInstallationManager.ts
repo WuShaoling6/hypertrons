@@ -40,17 +40,17 @@ export class AppInstallationManager extends AppPluginBase<Config> {
 
   public async onClose(): Promise<void> { }
 
-  public async getClient(installationId: number, name: string): Promise<IClient | undefined> {
+  public async getClient(installationId: number, repoId: number): Promise<IClient | undefined> {
     // tslint:disable-next-line: whitespace
     const type = this.clientMap.get(installationId)?.type;
     if (type) {
       switch (type) {
         case 'github':
-          return this.app.github.getClient(installationId, name);
+          return this.app.github.getClient(installationId, repoId);
         case 'gitlab':
-          return this.app.gitlab.getClient(installationId, name);
+          return this.app.gitlab.getClient(installationId, repoId);
         case 'gitee':
-          return this.app.gitee.getClient(installationId, name);
+          return this.app.gitee.getClient(installationId, repoId);
         default:
           break;
       }
@@ -76,19 +76,19 @@ export class AppInstallationManager extends AppPluginBase<Config> {
     return { id, type };
   }
 
-  public async getHostingClientByInstallationName(installationName: string, fullName: string): Promise<IClient> {
+  public async getHostingClientByInstallationName(installationName: string, repoId: number): Promise<IClient> {
     let client: any;
     this.clientMap.forEach(async(hostingPlatform, installationId) => {
       if (hostingPlatform.name === installationName) {
         switch (hostingPlatform.type) {
           case 'github':
-            client = this.app.github.getClient(installationId, fullName);
+            client = this.app.github.getClient(installationId, repoId);
             break;
           case 'gitlab':
-            client = this.app.gitlab.getClient(installationId, fullName);
+            client = this.app.gitlab.getClient(installationId, repoId);
             break;
           case 'gitee':
-            client = this.app.gitee.getClient(installationId, fullName);
+            client = this.app.gitee.getClient(installationId, repoId);
             break;
           default:
            break;

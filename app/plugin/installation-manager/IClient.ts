@@ -22,6 +22,8 @@ export interface IClient {
 
   getFileContent(filePath: string): Promise<string | undefined>;
 
+  updateFullName(fullName: string);
+
   communitySvgImage(): string;
 
 }

@@ -24,7 +24,7 @@ import { existsSync, readFileSync } from 'fs';
 import Webhooks = require('@octokit/webhooks');
 import { GithubWrapper } from '../../basic/DataWrapper';
 import {
-  IssueEvent, CommentUpdateEvent, LabelUpdateEvent, PullRequestEvent, ReviewCommentEvent, PushEvent, ReviewEvent,
+  IssueEvent, CommentUpdateEvent, LabelUpdateEvent, PullRequestEvent, ReviewCommentEvent, PushEvent, ReviewEvent, RepoRenamedEvent,
 } from '../event-manager/events';
 import { DataCat } from 'github-data-cat';
 import EventSource from 'eventsource';
@@ -58,7 +58,7 @@ export class GitHubApp extends HostingBase<GitHubConfig, GitHubClient, Octokit> 
     this.dataCat.init();
   }
 
-  public async getInstalledRepos(): Promise<Array<{fullName: string, payload: any}>> {
+  public async getInstalledRepos(): Promise<Array<{repoId: number, ownerId: number, fullName: string, payload: any}>> {
     const octokit = new Octokit({
       auth: `Bearer ${this.githubApp.getSignedJsonWebToken()}`,
     });
@@ -76,10 +76,12 @@ export class GitHubApp extends HostingBase<GitHubConfig, GitHubClient, Octokit> 
         repos: repos.data.repositories,
       };
     }));
-    const ret: Array<{fullName: string, payload: any}> = [];
+    const ret: Array<{repoId: number, ownerId: number, fullName: string, payload: any}> = [];
     repos.forEach(repo => {
       repo.repos.forEach(r => {
         ret.push({
+          repoId: r.id,
+          ownerId: r.owner.id,
           fullName: r.full_name,
           payload: repo.id,
         });
@@ -88,9 +90,9 @@ export class GitHubApp extends HostingBase<GitHubConfig, GitHubClient, Octokit> 
     return ret;
   }
 
-  public async addRepo(name: string, payload: any): Promise<void> {
+  public async addRepo(repoId: number, ownerId: number, fullName: string, payload: any): Promise<void> {
     // set token before any request
-    const githubClient = new GitHubClient(name, this.id, this.app, this.dataCat, this);
+    const githubClient = new GitHubClient(repoId, ownerId, fullName, this.id, this.app, this.dataCat, this);
     const oct = new Octokit();
     githubClient.setRawClient(oct);
     oct.hook.before('request', async () => {
@@ -102,7 +104,7 @@ export class GitHubApp extends HostingBase<GitHubConfig, GitHubClient, Octokit> 
         token,
       });
     });
-    this.clientMap.set(name, async () => githubClient);
+    this.clientMap.set(repoId, async () => githubClient);
   }
 
   protected async initWebhook(config: GitHubConfig): Promise<void> {
@@ -146,8 +148,9 @@ export class GitHubApp extends HostingBase<GitHubConfig, GitHubClient, Octokit> 
       e.payload.repositories.forEach(r => {
         this.app.event.publish('all', HostingPlatformRepoAddedEvent, {
           id: this.id,
+          repoId: r.id,
+          ownerId: e.payload.installation.account.id,
           fullName: r.full_name,
-          payload: r.id,
         });
       });
     });
@@ -155,22 +158,23 @@ export class GitHubApp extends HostingBase<GitHubConfig, GitHubClient, Octokit> 
       e.payload.repositories_added.forEach(r => {
         this.app.event.publish('all', HostingPlatformRepoAddedEvent, {
           id: this.id,
+          repoId: r.id,
+          ownerId: e.payload.installation.account.id,
           fullName: r.full_name,
-          payload: r.id,
         });
       });
     });
     webhooks.on('installation.deleted', e => {
       this.app.event.publish('all', HostingPlatformUninstallEvent, {
         id: this.id,
-        owner: e.payload.installation.account.login,
+        ownerId: e.payload.installation.account.id,
       });
     });
     webhooks.on('installation_repositories.removed', e => {
       e.payload.repositories_removed.forEach(r => {
         this.app.event.publish('all', HostingPlatformRepoRemovedEvent, {
           id: this.id,
-          fullName: r.full_name,
+          repoId: r.id,
         });
       });
     });
@@ -192,6 +196,7 @@ export class GitHubApp extends HostingBase<GitHubConfig, GitHubClient, Octokit> 
                   'issues.unpinned', ], e => {
       const ie = {
         installationId: this.id,
+        repoId: e.payload.repository.id,
         fullName: e.payload.repository.full_name,
         action: e.payload.action,
         issue: githubWrapper.issueWrapper(e.payload.issue),
@@ -210,8 +215,9 @@ export class GitHubApp extends HostingBase<GitHubConfig, GitHubClient, Octokit> 
           isIssue = true;
       }
 
-      const ice = {
+      const ice: CommentUpdateEvent = {
         installationId: this.id,
+        repoId: e.payload.repository.id,
         fullName: e.payload.repository.full_name,
         issueNumber: e.payload.issue.number,
         action: e.payload.action,
@@ -223,6 +229,7 @@ export class GitHubApp extends HostingBase<GitHubConfig, GitHubClient, Octokit> 
     webhooks.on([ 'label.created', 'label.deleted' , 'label.edited' ], e => {
       const le: LabelUpdateEvent = {
         installationId:  this.id,
+        repoId: e.payload.repository.id,
         fullName: e.payload.repository.full_name,
         action: e.payload.action,
         labelName: e.payload.label.name,
@@ -248,6 +255,7 @@ export class GitHubApp extends HostingBase<GitHubConfig, GitHubClient, Octokit> 
                   'pull_request.synchronize' ], e => {
       const pre = {
         installationId: this.id,
+        repoId: e.payload.repository.id,
         fullName: e.payload.repository.full_name,
         action: e.payload.action,
         pullRequest: githubWrapper.pullRequestWrapper(e.payload.pull_request),
@@ -257,8 +265,9 @@ export class GitHubApp extends HostingBase<GitHubConfig, GitHubClient, Octokit> 
     webhooks.on([ 'pull_request_review.submitted',
                   'pull_request_review.edited',
                   'pull_request_review.dismissed' ], e => {
-      const re = {
+      const re: ReviewEvent = {
         installationId: this.id,
+        repoId: e.payload.repository.id,
         fullName: e.payload.repository.full_name,
         action: e.payload.action,
         prNumber: e.payload.pull_request.number,
@@ -269,8 +278,9 @@ export class GitHubApp extends HostingBase<GitHubConfig, GitHubClient, Octokit> 
     webhooks.on([ 'pull_request_review_comment.created',
                   'pull_request_review_comment.edited',
                   'pull_request_review_comment.deleted' ], e => {
-      const rce = {
+      const rce: ReviewCommentEvent = {
         installationId: this.id,
+        repoId: e.payload.repository.id,
         fullName: e.payload.repository.full_name,
         action: e.payload.action,
         prNumber: e.payload.pull_request.number,
@@ -281,10 +291,19 @@ export class GitHubApp extends HostingBase<GitHubConfig, GitHubClient, Octokit> 
     webhooks.on('push', e => {
       const pe = {
         installationId: this.id,
+        repoId: e.payload.repository.id,
         fullName: e.payload.repository.full_name,
         push: githubWrapper.pushWrapper(e.payload),
       };
       this.app.event.publish('all', PushEvent, pe);
+    });
+    webhooks.on('repository.renamed', e => {
+      const re: RepoRenamedEvent = {
+        installationId: this.id,
+        repoId: e.payload.repository.id,
+        fullName: e.payload.repository.full_name,
+      };
+      this.app.event.publish('all', RepoRenamedEvent, re);
     });
   }
 }

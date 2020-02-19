@@ -16,7 +16,7 @@ import { mergeWith, isArray, cloneDeep } from 'lodash';
 import waitFor from 'p-wait-for';
 import { EggLogger } from 'egg-logger';
 import { pope } from 'pope';
-import { join } from 'path';
+import * as path from 'path';
 
 export function parseRepoName(fullName: string): { owner: string, repo: string } {
   const s = fullName.split('/');
@@ -156,14 +156,12 @@ export function getLastWeek(): Date {
   return new Date(new Date().getTime() - 7 * 24 * 60 * 60 * 1000);
 }
 
-// rootPath/owner/repo.json => owner/repo
-export function parsePrivateConfigFileName(configFileName: string): string {
-  const parseName = configFileName.split('.');
-  if (parseName.length !== 2) return '';
-
-  const paths = parseName[0].split('/');
-  if (paths.length < 2) return '';
-  if (paths.find(s => s.length === 0) !== undefined) return '';
-
-  return join(paths[paths.length - 2], paths[paths.length - 1]);
+// rootPath/repoId.json => repoId
+export function parsePrivateConfigFileName(configFileName: string): number | undefined {
+  try {
+    const repoId = Number(path.basename(configFileName, '.json'));
+    return isNaN(repoId) ? undefined : repoId;
+  } catch (e) {
+    return undefined;
+  }
 }

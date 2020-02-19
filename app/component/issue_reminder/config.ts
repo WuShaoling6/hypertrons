@@ -40,6 +40,8 @@ export default class Config {
 
   @configProp({
     description: 'Reminder message',
+    type: 'array',
+    arrayType: 'string',
     defaultValue: defaultConfig.message,
   })
   message: string;

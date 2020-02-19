@@ -14,162 +14,69 @@
 
 import { HostingClientBase } from '../../basic/HostingPlatform/HostingClientBase';
 import { Gitlab } from 'gitlab';
-import { Application } from 'egg';
 import { CheckRun } from '../../basic/DataTypes';
-import { getAll } from './data/getAll';
-import { GitlabGraphqlClient } from './client/GitlabGraphqlClient';
 import { GitLabConfig } from './GitLabConfig';
-import { HostingBase } from '../../basic/HostingPlatform/HostingBase';
 
 export class GitLabClient extends HostingClientBase<GitLabConfig, Gitlab> {
 
-  private id: number;
-  private gitlabGraphqlClient: GitlabGraphqlClient;
-
-  constructor(name: string, hostId: number, app: Application, id: number, client: Gitlab,
-              gitlabGraphqlClient: GitlabGraphqlClient,
-              hostBase: HostingBase<GitLabConfig, HostingClientBase<GitLabConfig, Gitlab>, Gitlab>) {
-    super(name, hostId, app, hostBase);
-    this.id = id;
-    this.rawClient = client;
-    this.gitlabGraphqlClient = gitlabGraphqlClient;
+  protected updateData(): Promise<void> {
+    return undefined as any;
   }
 
-  protected async updateData(): Promise<void> {
-    this.repoDataService.setRepoData(await getAll(this.gitlabGraphqlClient, this.fullName));
+  public getFileContent(_path: string): Promise<string | undefined> {
+    return undefined as any;
   }
 
-  public async getFileContent(path: string): Promise<string | undefined> {
-    const res = await this.rawClient.RepositoryFiles.showRaw(this.id, path, 'master');
-    return res as any;
+  public addIssue(_title: string, _body: string, _labels?: string[] | undefined): Promise<void> {
+    return undefined as any;
   }
 
-  public async addIssue(title: string, body: string, labels?: string[] | undefined): Promise<void> {
-    // API doc: https://docs.gitlab.com/ee/api/issues.html#new-issue
-    await this.rawClient.Issues.create(this.id, {
-      title,
-      description: body,
-      labels: labels ? labels.join(',') : undefined,
-    });
+  public addIssueComment(_number: number, _body: string): Promise<void> {
+    return undefined as any;
   }
 
-  public async listLabels(): Promise<Array<{name: string, description: string, color: string}>> {
-    // API doc: https://docs.gitlab.com/ee/api/labels.html#list-labels
-    const res = await this.rawClient.Labels.all(this.id) as any[];
-    if (!res) return [];
-    return res.map(r => {
-      return {
-        name: r.name,
-        description: r.description,
-        color: r.color,
-      };
-    });
+  public listLabels(): Promise<Array<{ name: string; description: string; color: string; }>> {
+    return undefined as any;
   }
 
-  public async addLabels(number: number, labels: string[]): Promise<void> {
-    // For issues, API doc: https://docs.gitlab.com/ee/api/issues.html#new-issue
-    // For MRs, API doc: https://docs.gitlab.com/ee/api/merge_requests.html#update-mr
-    await this.rawClient.Issues.edit(this.id, number, {
-      labels: labels.join(','),
-    });
+  public updateIssue(_number: number, _update: { title?: string | undefined; body?: string | undefined; state?: 'open' | 'closed' | undefined; }): Promise<void> {
+    return undefined as any;
   }
 
-  public async removeLabel(number: number, label: string): Promise<void> {
-    this.logger.info(number, label);
-    // TODO
-    await this.rawClient.Issues.edit(this.id, number, {
-      labels: [], // just do nothing to pass compile
-    });
+  public updatePull(_number: number, _update: { title?: string | undefined; body?: string | undefined; state?: 'open' | 'closed' | undefined; }): Promise<void> {
+    return undefined as any;
   }
 
-  public async updateIssue(number: number, update: {title?: string | undefined; body?: string | undefined; state?: 'open' | 'closed' | undefined; }): Promise<void> {
-    // API doc: https://docs.gitlab.com/ee/api/issues.html#edit-issue
-    let state_event: any;
-    if (update.state === 'open') state_event = 'reopen';
-    if (update.state === 'closed') state_event = 'close';
-    await this.rawClient.Issues.edit(this.id, number, {
-      title: update.title,
-      description: update.body,
-      state_event,
-    });
+  public updateIssueComment(_comment_id: number, _body: string): Promise<void> {
+    return undefined as any;
   }
 
-  // TODO please add test cases
-  public async updatePull(number: number, update: { title?: string;
-                                                    body?: string;
-                                                    state?: 'open' | 'closed';
-                                                   }): Promise<void> {
-    let state_event: any;
-    if (update.state === 'open') state_event = 'reopen';
-    if (update.state === 'closed') state_event = 'close';
-    await this.rawClient.MergeRequests.edit(this.id, number, {
-      title: update.title,
-      description: update.body,
-      state_event,
-    });
+  public addLabels(_number: number, _labels: string[]): Promise<void> {
+    return undefined as any;
   }
 
-  public async addIssueComment(number: number, body: string): Promise<void> {
-    await this.rawClient.IssueNotes.create(this.id, number, body);
+  public removeLabel(_number: number, _label: string): Promise<void> {
+    return undefined as any;
   }
 
-  public async updateIssueComment(comment_id: number, body: string): Promise<void> {
-    // Wrong just to pass compile.
-    this.logger.info(comment_id, body);
-    await this.rawClient.Labels.all(this.id); // nonsense.
+  public updateLabels(_labels: Array<{ current_name: string; name?: string | undefined; description?: string | undefined; color?: string | undefined; }>): Promise<void> {
+    return undefined as any;
   }
 
-  public async updateLabels(labels: Array<{ current_name: string; description?: string | undefined; color?: string | undefined }>): Promise<void> {
-    // API doc: https://docs.gitlab.com/ee/api/labels.html#edit-an-existing-label
-    await Promise.all(labels.map(label => {
-      return this.rawClient.Labels.edit(this.id, label.current_name, {
-        color: this.parseColor(label.color),
-        description: label.description,
-      });
-    }));
+  public createLabels(_labels: Array<{ name: string; description: string; color: string; }>): Promise<void> {
+    return undefined as any;
   }
 
-  public async createLabels(labels: Array<{ name: string; description: string; color: string; }>): Promise<void> {
-    // API doc: https://docs.gitlab.com/ee/api/labels.html#create-a-new-label
-    await Promise.all(labels.map(async label => {
-      return this.rawClient.Labels.create(this.id, label.name, this.parseColor(label.color), {
-        description: label.description,
-      });
-    }));
+  public createCheckRun(_check: CheckRun): Promise<void> {
+    return undefined as any;
   }
 
-  public async merge(num: number): Promise<void> {
-    await this.rawClient.MergeRequests.accept(this.id, num, {
-      squash: true,
-    });
+  public merge(_num: number): Promise<void> {
+    return undefined as any;
   }
 
-  public async assign(num: number, login: string): Promise<void> {
-    // Need to get user id by login first
-    try {
-      const user = await this.rawClient.Users.search(login) as any;
-      if (user && Array.isArray(user) && user.length > 0) {
-        const userId = user[0].id;
-        // API doc: https://docs.gitlab.com/ee/api/issues.html#edit-issue
-        await this.rawClient.Issues.edit(this.id, num, {
-          assignee_ids: [ userId ],
-        });
-      }
-    } catch (e) {
-      this.logger.error(e);
-    }
+  public assign(_num: number, _login: string): Promise<void> {
+    return undefined as any;
   }
 
-  private parseColor<T>(color: T): T {
-    if (!color) return color;
-    if (!(color as any).startsWith('#')) {
-      color = `#${color}` as any;
-    }
-    return (color as any).toUpperCase();
-  }
-
-  public createCheckRun(check: CheckRun): Promise<void> {
-    this.logger.info(check);
-    return new Promise(() => {});
-  }
 }

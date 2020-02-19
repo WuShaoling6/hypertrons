@@ -14,25 +14,21 @@
 
 import { HostingManagerBase } from '../../basic/HostingPlatform/HostingManagerBase';
 import { Application } from 'egg';
-import { GiteeApp } from './gitee-app';
-import { GiteeClient } from './gitee-client';
-import { GiteeConfig } from './gitee-config';
 import { getConfigMeta } from '../../config-generator/decorators';
-import { GiteeRawClient } from './gitee-raw-client/gitee-raw-client';
 
-export class GiteeManager extends HostingManagerBase<GiteeApp, GiteeClient, GiteeRawClient, GiteeConfig> {
+export class GiteeManager extends HostingManagerBase<any, any, any, any> {
 
   constructor(config: null, app: Application) {
     super(config, app);
     this.type = 'gitee';
   }
 
-  protected async getNewHostingPlatform(id: number, config: GiteeConfig): Promise<GiteeApp> {
-    return new GiteeApp(id, config, this.app);
+  protected async getNewHostingPlatform(_id: number, _config: any): Promise<any> {
+    return undefined;
   }
 
   public getConfigType(): any {
-    return getConfigMeta(GiteeConfig);
+    return getConfigMeta(undefined);
   }
 
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { BotLogger, loggerWrapper, waitUntil, parseRepoName } from '../Utils';
+import { BotLogger, loggerWrapper, waitUntil } from '../Utils';
 import { Application } from 'egg';
 import { CheckRun, CIPlatform, Repo } from '../DataTypes';
 import CIConfig from '../../component/ci/config';
@@ -29,6 +29,7 @@ import { IClient } from '../../plugin/installation-manager/IClient';
 import { HostingClientSyncDataEvent } from './event';
 import { SVG, Svg } from '@svgdotjs/svg.js';
 import RoleConfig from '../../component/role/config';
+import { RepoRenamedEvent } from '../../plugin/event-manager/events';
 
 export abstract class HostingClientBase<TConfig extends HostingConfigBase, TRawClient> implements IClient {
 
@@ -36,6 +37,8 @@ export abstract class HostingClientBase<TConfig extends HostingConfigBase, TRawC
   protected logger: BotLogger;
 
   protected hostId: number;
+  protected repoId: number;
+  protected ownerId: number;
   protected fullName: string;
   protected rawClient: TRawClient;
   protected hostBase: HostingBase<TConfig, HostingClientBase<TConfig, TRawClient>, TRawClient>;
@@ -49,8 +52,11 @@ export abstract class HostingClientBase<TConfig extends HostingConfigBase, TRawC
   public eventService: EventManager<TConfig, TRawClient>;
   protected services: Array<ClientServiceBase<TConfig, TRawClient>>;
 
-  constructor(fullName: string, hostId: number, app: Application,
+  constructor(repoId: number, ownerId: number, fullName: string,
+              hostId: number, app: Application,
               hostBase: HostingBase<TConfig, HostingClientBase<TConfig, TRawClient>, TRawClient>) {
+    this.repoId = repoId;
+    this.ownerId = ownerId;
     this.fullName = fullName;
     this.hostId = hostId;
     this.app = app;
@@ -75,6 +81,10 @@ export abstract class HostingClientBase<TConfig extends HostingConfigBase, TRawC
 
     this.eventService.subscribeOne(HostingClientSyncDataEvent, async () => {
       this.syncData();
+    });
+
+    this.eventService.subscribeAll(RepoRenamedEvent, async e => {
+      this.updateFullName(e.fullName);
     });
 
     this.updateData();
@@ -180,10 +190,20 @@ export abstract class HostingClientBase<TConfig extends HostingConfigBase, TRawC
   public getStarted(): boolean {
     return this.started;
   }
-  public getOwner(): string {
-    const { owner } = parseRepoName(this.fullName);
-    return owner;
+  public getOwnerId(): number {
+    return this.ownerId;
   }
+  public getRepoId(): number {
+    return this.repoId;
+  }
+  public updateFullName(fullName: string) {
+    if (fullName !== undefined && fullName !== null && this.fullName !== fullName) {
+      this.logger.info(`Start to update fullName, from ${this.fullName} to ${fullName}`);
+      this.fullName = fullName;
+      this.services.forEach(s => s.onFullNameUpdate());
+    }
+  }
+
   public async runCI(configName: string, pullNumber: number): Promise<void> {
     if (!configName || !Number.isInteger(pullNumber)) return;
 

@@ -65,10 +65,10 @@ export abstract class HostingManagerBase<THostingPlatform extends HostingBase<TC
     return this.hpMap.get(id);
   }
 
-  public async getClient(id: number, name: string): Promise<TClient | undefined> {
+  public async getClient(id: number, repoId: number): Promise<TClient | undefined> {
     const hp = this.hpMap.get(id);
     if (hp) {
-      return hp.getClient(name);
+      return hp.getClient(repoId);
     }
     return undefined;
   }

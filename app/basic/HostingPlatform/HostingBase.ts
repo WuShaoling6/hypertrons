@@ -38,11 +38,11 @@ export abstract class HostingBase<TConfig extends HostingConfigBase,
   protected id: number;
   protected name: string;
   protected hostingType: HostingPlatformTypes;
-  protected clientMap: Map<string, () => Promise<TClient>>;
+  protected clientMap: Map<number, () => Promise<TClient>>;
   protected config: TConfig;
   public compService: ComponentService;
   private updateConfigSched: ISchedulerJobHandler;
-  private repoConfigStatus: Map<string, RawDataStatus>;
+  private repoConfigStatus: Map<number, RawDataStatus>;
 
   constructor(hostingType: HostingPlatformTypes, id: number, config: TConfig, app: Application) {
     this.id = id;
@@ -51,23 +51,24 @@ export abstract class HostingBase<TConfig extends HostingConfigBase,
     this.hostingType = hostingType;
     this.app = app;
     this.logger = loggerWrapper(app.logger, `[host-${this.name}]`);
-    this.clientMap = new Map<string, () => Promise<TClient>>();
+    this.clientMap = new Map<number, () => Promise<TClient>>();
     this.compService = new ComponentService(this.name, config.component, app);
-    this.repoConfigStatus = new Map<string, RawDataStatus>();
+    this.repoConfigStatus = new Map<number, RawDataStatus>();
     this.initWebhook(config);
     this.onStart();
   }
 
-  public abstract async getInstalledRepos(): Promise<Array<{fullName: string, payload: any}>>;
+  public abstract async getInstalledRepos(): Promise<Array<{repoId: number, ownerId: number,
+                                                            fullName: string, payload: any}>>;
 
-  public abstract async addRepo(name: string, payload: any): Promise<void>;
+  public abstract async addRepo(repoId: number, ownerId: number, fullName: string, payload: any): Promise<void>;
 
   protected abstract async initWebhook(config: TConfig): Promise<void>;
 
   public async onStart(): Promise<any> {
 
     this.app.event.subscribeAll(HostingPlatformInitRepoEvent, async e => {
-      if (e.id === this.id) this.addRepo(e.fullName, e.payload);
+      if (e.id === this.id) this.addRepo(e.repoId, e.ownerId, e.fullName, e.payload);
     });
 
     // Only one worker do load data and then sync data to others.
@@ -83,13 +84,13 @@ export abstract class HostingBase<TConfig extends HostingConfigBase,
     // one worker load client data and then sync to other workers
     this.app.event.subscribeOne(HostingPlatformRepoAddedEvent, async e => {
       if (e.id !== this.id) return;
-      await waitUntil(() => this.clientMap.has(e.fullName), { interval: 500 });
-      const client = await this.getClient(e.fullName);
+      await waitUntil(() => this.clientMap.has(e.repoId), { interval: 500 });
+      const client = await this.getClient(e.repoId);
       if (client) {
         await waitUntil(() => client.getStarted(), { interval: 500 });
         this.app.event.publish('worker', HostingClientSyncDataEvent, {
           installationId: this.id,
-          fullName: e.fullName,
+          repoId: e.repoId,
         });
       } else {
         this.logger.error(`Add client error, client ${e.fullName} is undefined!`);
@@ -99,24 +100,24 @@ export abstract class HostingBase<TConfig extends HostingConfigBase,
     this.app.event.subscribeAll(HostingPlatformRepoAddedEvent, async e => {
       if (e.id !== this.id) return;
       await waitUntil(() => this.compService.getComponentLoaded(), { interval: 500 });
-      this.addRepo(e.fullName, e.payload);
+      this.addRepo(e.repoId, e.ownerId, e.fullName, e.payload);
     });
 
     this.app.event.subscribeAll(HostingPlatformRepoRemovedEvent, async e => {
       if (e.id !== this.id) return;
-      const client = await this.getClient(e.fullName);
+      const client = await this.getClient(e.repoId);
       if (client) {
         await client.onDispose();
-        this.clientMap.delete(e.fullName);
+        this.clientMap.delete(e.repoId);
       }
     });
     this.app.event.subscribeAll(HostingPlatformUninstallEvent, async e => {
-      if (e.id !== this.id || !e.owner) return;
-      this.clientMap.forEach(async (_, fullName) => {
-        const client = await this.getClient(fullName);
-        if (client && client.getOwner() === e.owner) {
+      if (e.id !== this.id || !Number.isInteger(e.ownerId)) return;
+      this.clientMap.forEach(async (_, repoId: number) => {
+        const client = await this.getClient(repoId);
+        if (client && client.getOwnerId() === e.ownerId) {
           await client.onDispose();
-          this.clientMap.delete(fullName);
+          this.clientMap.delete(repoId);
         }
       });
     });
@@ -129,12 +130,20 @@ export abstract class HostingBase<TConfig extends HostingConfigBase,
         if (event === 'update') {
           const basePathInfo = statSync(file);
           if (!basePathInfo.isDirectory()) { // Only concern about file changed
-            const fullName = parsePrivateConfigFileName(file);
-            this.updateConfigStatus(fullName, { config: { file: 'updated' } } as any);
+            const repoId = parsePrivateConfigFileName(file);
+            if (repoId !== undefined) {
+              this.updateConfigStatus(repoId, { config: { file: 'updated' } } as any);
+            } else {
+              this.logger.warn(`parse private-config filename: ${file} error`);
+            }
           }
         } else if (event === 'remove') {
-          const fullName = parsePrivateConfigFileName(file);
-          this.updateConfigStatus(fullName, { config: { file: 'deleted' } } as any);
+          const repoId = parsePrivateConfigFileName(file);
+          if (repoId !== undefined) {
+            this.updateConfigStatus(repoId, { config: { file: 'deleted' } } as any);
+          } else {
+            this.logger.warn(`parse private-config filename: ${file} error`);
+          }
         }
       });
     }
@@ -160,25 +169,28 @@ export abstract class HostingBase<TConfig extends HostingConfigBase,
     const repos = await this.getInstalledRepos();
     this.logger.info(`All installed repos loaded for hosting name=${this.name}, count=${repos.length}`);
     repos.forEach(async repo => {
-      const fullName = repo.fullName;
+      console.log(repo);
+      if (!repo.fullName.startsWith('WuShaoling')) return;
       // All worker init repo
       this.app.event.publish('all', HostingPlatformInitRepoEvent, {
         id: this.id,
-        fullName,
+        repoId: repo.repoId,
+        ownerId: repo.ownerId,
+        fullName: repo.fullName,
         ...repo,
       });
       // Only one worker load data and sync to others
-      await waitUntil(() => this.clientMap.has(fullName), { interval: 500 });
-      const client = await this.getClient(fullName);
+      await waitUntil(() => this.clientMap.has(repo.repoId), { interval: 500 });
+      const client = await this.getClient(repo.repoId);
       if (client) {
         // Make sure that the client has listened to the event
         await waitUntil(() => client.getStarted(), { interval: 500 });
         this.app.event.publish('worker', HostingClientSyncDataEvent, {
           installationId: this.id,
-          fullName,
+          repoId: repo.repoId,
         });
       } else {
-        this.logger.error(`Add client error, client ${fullName} is undefined!`);
+        this.logger.error(`Add client error, client ${repo.fullName} is undefined!`);
       }
     });
 
@@ -189,11 +201,11 @@ export abstract class HostingBase<TConfig extends HostingConfigBase,
       this.config.config.updateInterval,
       'worker',
       () => {
-        this.repoConfigStatus.forEach((status, fullName) => {
-          this.repoConfigStatus.delete(fullName);
+        this.repoConfigStatus.forEach((status, repoId: number) => {
+          this.repoConfigStatus.delete(repoId);
           this.app.event.publish('worker', HostingClientSyncConfigEvent, {
             installationId: this.id,
-            fullName,
+            repoId,
             status,
           });
         });
@@ -205,14 +217,14 @@ export abstract class HostingBase<TConfig extends HostingConfigBase,
     if (this.updateConfigSched !== undefined) {
       this.updateConfigSched.cancel();
     }
-    this.clientMap.forEach(async(_, fullName) => {
-      const client = await this.getClient(fullName);
+    this.clientMap.forEach(async(_, repoId: number) => {
+      const client = await this.getClient(repoId);
       if (client) client.onDispose();
     });
   }
 
-  public async getClient(name: string): Promise<TClient | undefined> {
-    const gen = this.clientMap.get(name);
+  public async getClient(repoId: number): Promise<TClient | undefined> {
+    const gen = this.clientMap.get(repoId);
     if (gen) {
       return await gen();
     }
@@ -227,12 +239,12 @@ export abstract class HostingBase<TConfig extends HostingConfigBase,
     return this.config;
   }
 
-  public getRepoConfigStatus(): Map<string, RawDataStatus> {
+  public getRepoConfigStatus(): Map<number, RawDataStatus> {
     return this.repoConfigStatus;
   }
 
-  public updateConfigStatus(fullName: string, changedStatus: RawDataStatus) {
-    let status: RawDataStatus | undefined = this.repoConfigStatus.get(fullName);
+  public updateConfigStatus(repoId: number, changedStatus: RawDataStatus) {
+    let status: RawDataStatus | undefined = this.repoConfigStatus.get(repoId);
     if (status === undefined) {
       status = {
         config: { file: 'clear', mysql: 'clear', remote: 'clear' },
@@ -253,7 +265,7 @@ export abstract class HostingBase<TConfig extends HostingConfigBase,
         }
       });
     }
-    this.repoConfigStatus.set(fullName, status);
+    this.repoConfigStatus.set(repoId, status);
   }
 
   protected post(path: string, middleware: any): string {

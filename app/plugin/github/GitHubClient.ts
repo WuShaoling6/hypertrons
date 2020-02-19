@@ -29,10 +29,11 @@ export class GitHubClient extends HostingClientBase<GitHubConfig, Octokit> {
   private repoName: {owner: string, repo: string};
   private dataCat: DataCat;
 
-  constructor(name: string, hostId: number, app: Application, dataCat: DataCat,
+  constructor(repoId: number, ownerId: number, fullName: string,
+              hostId: number, app: Application, dataCat: DataCat,
               hostBase: HostingBase<GitHubConfig, HostingClientBase<GitHubConfig, Octokit>, Octokit>) {
-    super(name, hostId, app, hostBase);
-    this.repoName = parseRepoName(name);
+    super(repoId, ownerId, fullName, hostId, app, hostBase);
+    this.repoName = parseRepoName(fullName);
     ({ owner: this.owner, repo: this.repo } = this.repoName);
     this.dataCat = dataCat;
   }

@@ -54,7 +54,12 @@ export class EventManager<TConfig extends HostingConfigBase, TRawClient> extends
     this.allHandlerMap.add(className, func);
   }
 
-  public async consume<T extends RepoEventBase>(className: string, type: 'worker' | 'workers' | 'agent' | 'all', param: T): Promise<void> {
+  public async consume<T extends RepoEventBase>(className: string,
+                                                type: 'worker' | 'workers' | 'agent' | 'all',
+                                                param: T): Promise<void> {
+
+    if (param.fullName) this.client.updateFullName(param.fullName);
+
     switch (type) {
       case 'worker':
         try {

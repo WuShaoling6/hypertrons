@@ -34,21 +34,25 @@ export class HostingPlatformComponentInitedEvent extends HostingPlatformEventBas
 }
 
 export class HostingPlatformInitRepoEvent extends HostingPlatformEventBase {
+  repoId: number;
+  ownerId: number;
   fullName: string;
   payload: any;
 }
 
 export class HostingPlatformRepoAddedEvent extends HostingPlatformEventBase {
+  repoId: number;
+  ownerId: number;
   fullName: string;
   payload: any;
 }
 
 export class HostingPlatformRepoRemovedEvent extends HostingPlatformEventBase {
-  fullName: string;
+  repoId: number;
 }
 
 export class HostingPlatformUninstallEvent extends HostingPlatformEventBase {
-  owner: string;
+  ownerId: number;
 }
 
 // Hosting client events

@@ -35,7 +35,7 @@ export class CommandService<TConfig extends HostingConfigBase, TRawClient>
 
   public async onStart(): Promise<any> {
     this.client.eventService.subscribeOne(IssueEvent, async e => {
-      this.logger.info(`Start to resolve the issue event for ${e.installationId} and repo ${e.fullName}`);
+      this.logger.info(`Start to resolve the issue event for ${e.installationId} and repo ${this.client.getFullName()}`);
       if (!e.issue) return;
       if (e.action === 'edited' || e.action === 'opened') {
         this.logger.info(`the issue's body is ${e.issue.body}`);
@@ -48,7 +48,7 @@ export class CommandService<TConfig extends HostingConfigBase, TRawClient>
           // publish new command event
           const event = Object.assign(new CommandManagerNewCommandEvent(), {
             installationId: e.installationId,
-            fullName: e.fullName,
+            repoId: e.repoId,
             login: (e.issue as any).author,
             from: 'issue',
             number: (e.issue as any).number,
@@ -63,7 +63,7 @@ export class CommandService<TConfig extends HostingConfigBase, TRawClient>
 
     // handle comment event
     this.client.eventService.subscribeOne(CommentUpdateEvent, async e => {
-      this.logger.info(`Start to resolve the comment event for ${e.installationId} and repo ${e.fullName}`);
+      this.logger.info(`Start to resolve the comment event for ${e.installationId} and repo ${this.client.getFullName()}`);
       if (!e.comment) return;
       const issue = this.client.getRepoData().issues.find(issue => issue.number === e.issueNumber);
       const pull = this.client.getRepoData().pulls.find(pull => pull.number === e.issueNumber);
@@ -84,7 +84,7 @@ export class CommandService<TConfig extends HostingConfigBase, TRawClient>
           // publish new command event
           const event = Object.assign(new CommandManagerNewCommandEvent(), {
             installationId: e.installationId,
-            fullName: e.fullName,
+            repoId: e.repoId,
             login: (e.comment as any).login,
             from: issue ? 'comment' : 'pull_comment',
             number: e.issueNumber,
@@ -99,7 +99,7 @@ export class CommandService<TConfig extends HostingConfigBase, TRawClient>
 
     // handle review event
     this.client.eventService.subscribeOne(ReviewEvent, async e => {
-      this.logger.info(`Start to resolve the review event for ${e.installationId} and repo ${e.fullName}`);
+      this.logger.info(`Start to resolve the review event for ${e.installationId} and repo ${this.client.getFullName()}`);
       if (!e.review || !e.review.body) return;
       const pull = this.client.getRepoData().pulls.find(pull => pull.number === e.prNumber);
       if (!pull) return;
@@ -114,7 +114,7 @@ export class CommandService<TConfig extends HostingConfigBase, TRawClient>
           // publish new command event
           const event = Object.assign(new CommandManagerNewCommandEvent(), {
             installationId: e.installationId,
-            fullName: e.fullName,
+            repoId: e.repoId,
             login: (e.review as any).login,
             from: 'review',
             number: e.prNumber,
@@ -129,7 +129,8 @@ export class CommandService<TConfig extends HostingConfigBase, TRawClient>
 
     // handle review comment event
     this.client.eventService.subscribeOne(ReviewCommentEvent, async e => {
-      this.logger.info(`Start to resolve the review comment event for ${e.installationId} and repo ${e.fullName}`);
+      this.logger.info('Start to resolve the review comment event for ' +
+                       `${e.installationId} and repo ${this.client.getFullName()}`);
       if (!e.comment) return;
       const pull = this.client.getRepoData().pulls.find(pull => pull.number === e.prNumber);
       if (!pull) return;
@@ -144,7 +145,7 @@ export class CommandService<TConfig extends HostingConfigBase, TRawClient>
           // publish new command event
           const event = Object.assign(new CommandManagerNewCommandEvent(), {
             installationId: e.installationId,
-            fullName: e.fullName,
+            repoId: e.repoId,
             login: (e.comment as any).login,
             from: 'review_comment',
             number: e.prNumber,

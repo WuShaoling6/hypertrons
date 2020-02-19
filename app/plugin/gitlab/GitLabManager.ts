@@ -27,8 +27,8 @@ export class GitLabManager extends HostingManagerBase<GitLabApp, GitLabClient, G
     this.type = 'gitlab';
   }
 
-  protected async getNewHostingPlatform(id: number, config: GitLabConfig): Promise<GitLabApp> {
-    return new GitLabApp(id, config, this.app);
+  protected async getNewHostingPlatform(_id: number, _config: GitLabConfig): Promise<GitLabApp> {
+    return undefined as any;
   }
 
   public getConfigType(): any {

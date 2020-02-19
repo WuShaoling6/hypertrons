@@ -44,9 +44,9 @@ export class ConfigService<TConfig extends HostingConfigBase, TRawClient>
       const hostingConfig = this.client.getHostingBase().getConfig();
       const filePath = hostingConfig.config.remote.filePath;
       if (e.push.commits.some(c => c.modified.includes(filePath) || c.added.includes(filePath))) {
-        this.client.getHostingBase().updateConfigStatus(e.fullName, { config: { remote: 'updated' } } as any);
+        this.client.getHostingBase().updateConfigStatus(e.repoId, { config: { remote: 'updated' } } as any);
       } else if (e.push.commits.some(c => c.removed.includes(filePath))) {
-        this.client.getHostingBase().updateConfigStatus(e.fullName, { config: { remote: 'deleted' } } as any);
+        this.client.getHostingBase().updateConfigStatus(e.repoId, { config: { remote: 'deleted' } } as any);
       }
 
       if (hostingConfig.component.enableRepoLua) {
@@ -54,7 +54,7 @@ export class ConfigService<TConfig extends HostingConfigBase, TRawClient>
         if (e.push.commits.some(c => c.added.find(f => f.startsWith(luaFilePath)) ||
                                     c.modified.find(f => f.startsWith(luaFilePath)) ||
                                     c.removed.find(f => f.startsWith(luaFilePath)))) {
-          this.client.getHostingBase().updateConfigStatus(e.fullName, { luaScript: { remote: 'updated' } } as any);
+          this.client.getHostingBase().updateConfigStatus(e.repoId, { luaScript: { remote: 'updated' } } as any);
         }
       }
     });
@@ -62,7 +62,7 @@ export class ConfigService<TConfig extends HostingConfigBase, TRawClient>
     this.client.eventService.subscribeAll(HostingClientConfigInitedEvent, async e => {
       this.logger.info('Hosting client config inited, update local config');
       this.client.getHostingBase().getRepoConfigStatus().clear();
-      if (e.status) this.client.getHostingBase().updateConfigStatus(e.fullName, e.status);
+      if (e.status) this.client.getHostingBase().updateConfigStatus(e.repoId, e.status);
       let needUpdateConfig = false;
       if (e.rawData.config) {
         Object.keys(e.rawData.config).forEach(key => {
@@ -104,7 +104,7 @@ export class ConfigService<TConfig extends HostingConfigBase, TRawClient>
 
     const event: HostingClientConfigInitedEvent = {
       installationId: this.client.getHostId(),
-      fullName: this.client.getFullName(),
+      repoId: this.client.getRepoId(),
       rawData: {
         config: {  file: undefined, mysql: undefined, remote: undefined },
         luaScript: { remote: undefined },
@@ -220,7 +220,7 @@ export class ConfigService<TConfig extends HostingConfigBase, TRawClient>
 
   // rootPath/owner/repoName.json
   private genRepoConfigFilePath(rootPath: string): string {
-    return join(rootPath, this.client.getFullName() + '.json') ;
+    return join(rootPath, `${this.client.getRepoId()} + '.json`) ;
   }
 
   // rootPath/componentName.lua

@@ -52,7 +52,8 @@ export class AppEventManager extends AppPluginBase<null> {
     this.allHandlerMap.add(className, func);
   }
 
-  public publish<T>(type: 'worker' | 'workers' | 'agent' | 'all', constructor: new (...args: any) => T, param: Partial<T>): void {
+  public publish<T>(type: 'worker' | 'workers' | 'agent' | 'all',
+                    constructor: new (...args: any) => T, param: Partial<T>): void {
     const p: IpcEventType = {
       type,
       className: getClassName(constructor),
@@ -89,9 +90,11 @@ export class AppEventManager extends AppPluginBase<null> {
   private async consume<T>(className: string, type: 'worker' | 'workers' | 'agent' | 'all', param: T): Promise<void> {
     const p = param as any;
     // if is a repo event, attach client automatically
-    if (Number.isInteger(p.installationId) && p.fullName) {
-      const client = await this.app.installation.getClient(p.installationId, p.fullName);
-      if (client) client.eventService.consume(className, type, p);
+    if (Number.isInteger(p.installationId) && Number.isInteger(p.repoId)) {
+      const client = await this.app.installation.getClient(p.installationId, p.repoId);
+      if (client) {
+        client.eventService.consume(className, type, p);
+      }
     } else {
       switch (type) {
         case 'worker':
