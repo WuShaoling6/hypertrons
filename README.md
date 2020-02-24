@@ -10,7 +10,7 @@ Hypertrons framework is written in [TypeScript](https://github.com/Microsoft/Typ
 
 ### Platform configuration
 
-Run `npm install` after cloning the repository and add a `globalConfig.json` file to configure the robot account, the content of the file should be like below, and you can find a sample config in [`globalConfigTemplate.json`](./globalConfigTemplate.json).
+Run `npm install` after  cloning the repository and add a `globalConfig.json` file to configure the robot account, the content of the file should be like below, and you can find a sample config in [`globalConfigTemplate.json`](./globalConfigTemplate.json).
 
 For config details, please refer to [robot config](./docs/configs/README.md).
 
